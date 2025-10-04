@@ -58,6 +58,10 @@ if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$WSL_DISTRO_NAME" ]]; 
         podman run --rm -it \
             -e DISPLAY="$DISPLAY" \
             --add-host=host.containers.internal:host-gateway \
+            --cap-add=SYS_ADMIN \
+            --security-opt seccomp=unconfined \
+            --shm-size=8g \
+            -v /dev/shm:/dev/shm \
             fedora_gui "$@"
     else
         echo "🐳 Using Docker"
@@ -100,11 +104,17 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Using TCP-based X11 forwarding..."
         CONTAINER_DISPLAY="host.containers.internal:0"
         
-        echo "Running: podman run --rm -it -e DISPLAY=$CONTAINER_DISPLAY --add-host=host.containers.internal:host-gateway fedora_gui $@"
+        echo "Running: podman run --rm -it -e DISPLAY=$CONTAINER_DISPLAY --add-host=host.containers.internal:host-gateway --cap-add=SYS_ADMIN --security-opt seccomp=unconfined --shm-size=8g fedora_gui $@"
         
         podman run --rm -it \
             -e DISPLAY="$CONTAINER_DISPLAY" \
             --add-host=host.containers.internal:host-gateway \
+            --cap-add=SYS_ADMIN \
+            --security-opt seccomp=unconfined \
+            --security-opt apparmor=unconfined \
+            --shm-size=8g \
+            -v /dev/shm:/dev/shm \
+            -v /tmp:/tmp \
             fedora_gui "$@"
     else
         # Socket-based approach with macOS-specific handling
@@ -131,12 +141,16 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
                 # Use the original DISPLAY but with localhost access
                 echo "Trying with original DISPLAY: $DISPLAY"
                 
-                echo "Running: podman run --rm -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host fedora_gui $@"
+                echo "Running: podman run --rm -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --net=host --cap-add=SYS_ADMIN --security-opt seccomp=unconfined --shm-size=2g fedora_gui $@"
                 
                 podman run --rm -it \
                     -e DISPLAY="$DISPLAY" \
                     -v /tmp/.X11-unix:/tmp/.X11-unix \
                     --net=host \
+                    --cap-add=SYS_ADMIN \
+                    --security-opt seccomp=unconfined \
+                    --shm-size=2g \
+                    -v /dev/shm:/dev/shm \
                     fedora_gui "$@"
                 
                 # Clean up and exit
@@ -341,11 +355,23 @@ else
         echo "Make sure X11 is running properly"
     fi
     
-    echo "Running: podman run --rm -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix fedora_gui $@"
+    echo "Running: podman run --rm -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --cap-add=SYS_ADMIN --security-opt seccomp=unconfined --shm-size=2g fedora_gui $@"
     
     # Run the container with X11 support (Linux)
-    podman run --rm -it \
-        -e DISPLAY=$DISPLAY \
-        -v /tmp/.X11-unix:/tmp/.X11-unix \
-        fedora_gui "$@"
+    PODMAN_ARGS=(--rm -it 
+        -e DISPLAY=$DISPLAY 
+        -v /tmp/.X11-unix:/tmp/.X11-unix
+        --cap-add=SYS_ADMIN
+        --security-opt seccomp=unconfined
+        --security-opt apparmor=unconfined  
+        --shm-size=2g
+        -v /dev/shm:/dev/shm)
+    
+    # Add DRI devices if they exist (for hardware acceleration)
+    if [ -d "/dev/dri" ]; then
+        PODMAN_ARGS+=(--device /dev/dri)
+        echo "✅ Added DRI devices for hardware acceleration"
+    fi
+    
+    podman run "${PODMAN_ARGS[@]}" fedora_gui "$@"
 fi

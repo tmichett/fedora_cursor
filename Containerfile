@@ -16,23 +16,33 @@ RUN dnf update -y && \
         xeyes gedit cursor xterm \
         hostname \
         dbus-x11 \
-        mesa-dri-drivers \
-        libXrandr \
-        libXScrnSaver \
-        gtk3 \
+        mesa-dri-drivers mesa-libGL mesa-libEGL \
+        libXrandr libXScrnSaver \
+        gtk3 gtk3-devel \
         nss \
-        alsa-lib && \
+        alsa-lib \
+        liberation-fonts dejavu-sans-fonts \
+        xorg-x11-fonts-misc \
+        vulkan-loader \
+        libdrm \
+        cairo cairo-devel \
+        pango pango-devel && \
     dnf clean all
 
-# Create wrapper script for Cursor with container-compatible settings
+# Create working wrapper script for Cursor with improved rendering support
 RUN echo '#!/bin/bash' > /usr/local/bin/cursor-safe && \
-    echo 'export ELECTRON_DISABLE_SANDBOX=1' >> /usr/local/bin/cursor-safe && \
-    echo 'export ELECTRON_NO_ATTACH_CONSOLE=1' >> /usr/local/bin/cursor-safe && \
-    echo 'export ELECTRON_DISABLE_SECURITY_WARNINGS=1' >> /usr/local/bin/cursor-safe && \
-    echo 'export ELECTRON_DISABLE_GPU_SANDBOX=1' >> /usr/local/bin/cursor-safe && \
     echo 'export LIBGL_ALWAYS_SOFTWARE=1' >> /usr/local/bin/cursor-safe && \
-    echo 'export DISPLAY=${DISPLAY}' >> /usr/local/bin/cursor-safe && \
-    echo 'exec cursor --disable-gpu --disable-chromium-sandbox "$@"' >> /usr/local/bin/cursor-safe && \
+    echo 'export GALLIUM_DRIVER=llvmpipe' >> /usr/local/bin/cursor-safe && \
+    echo 'export MESA_GL_VERSION_OVERRIDE=3.3' >> /usr/local/bin/cursor-safe && \
+    echo 'export ELECTRON_DISABLE_GPU=1' >> /usr/local/bin/cursor-safe && \
+    echo 'export ELECTRON_USE_SYSTEM_FONT_FALLBACK=1' >> /usr/local/bin/cursor-safe && \
+    echo 'export ELECTRON_DISABLE_GPU=1' >> /usr/local/bin/cursor-safe && \
+    echo 'export ELECTRON_DISABLE_HARDWARE_ACCELERATION=1' >> /usr/local/bin/cursor-safe && \
+    echo 'export CHROMIUM_DISABLE_GPU=1' >> /usr/local/bin/cursor-safe && \
+    echo 'export ELECTRON_MAX_HEAP_SIZE=4096' >> /usr/local/bin/cursor-safe && \
+    echo 'export NODE_OPTIONS="--max-old-space-size=4096"' >> /usr/local/bin/cursor-safe && \
+    echo 'mkdir -p /home/user/.cursor-data' >> /usr/local/bin/cursor-safe && \
+    echo 'exec cursor --disable-gpu --no-sandbox --disable-extensions --disable-dev-shm-usage --user-data-dir=/home/user/.cursor-data "$@"' >> /usr/local/bin/cursor-safe && \
     chmod +x /usr/local/bin/cursor-safe
 
 # Create a non-root user to run the application
